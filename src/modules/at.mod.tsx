@@ -1,4 +1,3 @@
-import React from "react";
 import type { ModuleDef, ModuleProps } from "../App";
 
 type State = {
