@@ -339,6 +339,12 @@ const LungorModule: ModuleDef<LungsState> = {
             {state.bilRassel && (
               <>
                 <span className="lbl">Rassel:</span>
+                <button
+                  className={"chip " + (state.bilRasselDiscrete ? "active" : "")}
+                  onClick={() => setState({ bilRasselDiscrete: !state.bilRasselDiscrete })}
+                >
+                  Diskreta
+                </button>
                 {ALL_PLACES.map((p) => (
                   <button
                     key={p}
@@ -353,13 +359,7 @@ const LungorModule: ModuleDef<LungsState> = {
                   >
                     {p}
                   </button>
-                )                )}
-                <button
-                  className={"chip " + (state.bilRasselDiscrete ? "active" : "")}
-                  onClick={() => setState({ bilRasselDiscrete: !state.bilRasselDiscrete })}
-                >
-                  Diskreta
-                </button>
+                ))}
                 <input
                   className="inp"
                   placeholder="Fritext (rassel)"
