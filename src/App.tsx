@@ -1,9 +1,9 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./styles.css";
 
 /** JonasPromptApp – modulär aggregator med startsida, Sökorsak och förbättrad kopiering */
-const REV = 13;
-const REV_AT = "2025-10-23 23:18"; // visas endast på startsidan
+const REV = 14;
+const REV_AT = "2025-10-23 23:45"; // visas endast på startsidan
 
 // --------- Grupp-typer ---------
 export type Group =
@@ -85,7 +85,38 @@ type SavedVisit = {
 
 const MAX_SAVED_VISITS = 10;
 const STORAGE_KEY = "jonasprompt_visits";
+const TEMPLATES_STORAGE_KEY = "jonasprompt_templates";
 const MAX_AGE_DAYS = 7; // Besök äldre än detta antal dagar tas bort automatiskt
+const AUTOSAVE_DELAY_MS = 5000; // Autospara efter 5 sekunder
+
+// --------- Mallar ---------
+type Template = {
+  id: string;
+  name: string;
+  description: string;
+  visit: Visit;
+  contactReason: string;
+  states: Record<string, any>;
+  createdAt: string;
+};
+
+function loadTemplates(): Template[] {
+  try {
+    const raw = localStorage.getItem(TEMPLATES_STORAGE_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+function saveTemplates(templates: Template[]) {
+  try {
+    localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+  } catch (e) {
+    console.error('Fel vid sparande av mallar:', e);
+  }
+}
 
 function loadVisits(): SavedVisit[] {
   try {
@@ -146,6 +177,10 @@ export default function App() {
   
   const [states, setStates] = useState<Record<string, any>>(initialState);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(initialCollapsed);
+  
+  // Autosparande
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const autosaveTimerRef = useRef<number | null>(null);
 
   const setSlice = useCallback((id: string) => (patch: Partial<any>) =>
     setStates((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } })), []);
@@ -269,7 +304,30 @@ export default function App() {
     // Lägg till i början, behåll max 10
     const updated = [newVisit, ...visits].slice(0, MAX_SAVED_VISITS);
     saveVisits(updated);
+    setLastSaved(new Date());
   }, [visit, contactReason, states, visitOpenedAt]);
+
+  // ---- Autosparande ----
+  useEffect(() => {
+    if (screen !== "visit") return;
+
+    // Rensa tidigare timer
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+
+    // Sätt ny timer
+    autosaveTimerRef.current = window.setTimeout(() => {
+      saveCurrentVisit();
+    }, AUTOSAVE_DELAY_MS);
+
+    // Cleanup
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, [screen, visit, contactReason, states, saveCurrentVisit]);
 
   const loadVisit = useCallback((savedVisit: SavedVisit) => {
     // Radera besöket från listan först för att undvika duplicering
@@ -284,6 +342,37 @@ export default function App() {
     setVisitOpenedAt(savedVisit.timestamp);
     setCollapsed(Object.fromEntries(MODS.map((m) => [m.id, false])));
     setScreen("visit");
+  }, []);
+
+  // ---- Mallhantering ----
+  const saveAsTemplate = useCallback((name: string, description: string) => {
+    const templates = loadTemplates();
+    const newTemplate: Template = {
+      id: Date.now().toString(),
+      name,
+      description,
+      visit,
+      contactReason,
+      states: clone(states),
+      createdAt: new Date().toISOString(),
+    };
+    
+    const updated = [newTemplate, ...templates];
+    saveTemplates(updated);
+    return true;
+  }, [visit, contactReason, states]);
+
+  const loadTemplate = useCallback((template: Template) => {
+    setVisit(template.visit);
+    setContactReason(template.contactReason);
+    setStates(clone(template.states));
+    setCollapsed(Object.fromEntries(MODS.map((m) => [m.id, false])));
+  }, []);
+
+  const deleteTemplate = useCallback((templateId: string) => {
+    const templates = loadTemplates();
+    const updated = templates.filter((t) => t.id !== templateId);
+    saveTemplates(updated);
   }, []);
 
   // ---- Startsida ----
@@ -349,7 +438,11 @@ export default function App() {
       <div className="container">
         <VisitHeader 
           title={headerTitle} 
-          onGoHome={goHome} 
+          onGoHome={goHome}
+          lastSaved={lastSaved}
+          onSaveTemplate={saveAsTemplate}
+          onLoadTemplate={loadTemplate}
+          onDeleteTemplate={deleteTemplate}
         />
 
         <div className="grid">
@@ -363,15 +456,20 @@ export default function App() {
             />
 
             {/* Moduler – startar kollapsade efter NYTT BESÖK */}
-            {MODS.map((m) => (
-              <m.Component
-                key={m.id}
-                state={states[m.id]}
-                setState={setSlice(m.id)}
-                collapsed={collapsed[m.id]}
-                toggle={() => toggle(m.id)}
-              />
-            ))}
+            {MODS.map((m) => {
+              const previewText = m.buildText(states[m.id]);
+              return (
+                <ModuleWrapper
+                  key={m.id}
+                  module={m}
+                  state={states[m.id]}
+                  setState={setSlice(m.id)}
+                  collapsed={collapsed[m.id]}
+                  toggle={() => toggle(m.id)}
+                  previewText={previewText}
+                />
+              );
+            })}
           </section>
 
           {/* Höger: output + kopiering */}
@@ -433,18 +531,299 @@ const HomeScreen = React.memo(({
 
 const VisitHeader = React.memo(({ 
   title, 
-  onGoHome 
+  onGoHome,
+  lastSaved,
+  onSaveTemplate,
+  onLoadTemplate,
+  onDeleteTemplate,
 }: { 
   title: string; 
-  onGoHome: () => void; 
-}) => (
-  <header className="header">
-    <h2>{title}</h2>
-    <button className="btn" onClick={onGoHome}>
-      Spara nuvarande besök och gå till startsidan
-    </button>
-  </header>
-));
+  onGoHome: () => void;
+  lastSaved: Date | null;
+  onSaveTemplate: (name: string, desc: string) => boolean;
+  onLoadTemplate: (template: Template) => void;
+  onDeleteTemplate: (id: string) => void;
+}) => {
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [showLoadDialog, setShowLoadDialog] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateDesc, setTemplateDesc] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSaveTemplate = () => {
+    if (!templateName.trim()) {
+      alert("Vänligen ange ett namn för mallen");
+      return;
+    }
+    onSaveTemplate(templateName.trim(), templateDesc.trim());
+    setTemplateName("");
+    setTemplateDesc("");
+    setShowTemplateDialog(false);
+    alert("Mall sparad!");
+  };
+
+  const handleExportTemplates = () => {
+    const templates = loadTemplates();
+    if (templates.length === 0) {
+      alert("Inga mallar att exportera");
+      return;
+    }
+    
+    const dataStr = JSON.stringify(templates, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `jonasprompt-mallar-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    alert(`${templates.length} mallar exporterade!`);
+  };
+
+  const handleImportTemplates = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedTemplates: Template[] = JSON.parse(e.target?.result as string);
+        
+        if (!Array.isArray(importedTemplates)) {
+          throw new Error("Ogiltig filformat");
+        }
+
+        const existingTemplates = loadTemplates();
+        
+        // Kontrollera för dubbletter (baserat på namn)
+        const existingNames = new Set(existingTemplates.map(t => t.name));
+        const newTemplates = importedTemplates.filter(t => !existingNames.has(t.name));
+        const duplicates = importedTemplates.length - newTemplates.length;
+        
+        if (newTemplates.length === 0) {
+          alert("Alla mallar i filen finns redan!");
+          return;
+        }
+
+        // Generera nya ID:n för importerade mallar
+        const templatesWithNewIds = newTemplates.map(t => ({
+          ...t,
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          createdAt: new Date().toISOString(),
+        }));
+
+        const updated = [...templatesWithNewIds, ...existingTemplates];
+        saveTemplates(updated);
+        
+        let message = `${newTemplates.length} mallar importerade!`;
+        if (duplicates > 0) {
+          message += ` (${duplicates} dubbletter hoppades över)`;
+        }
+        alert(message);
+        setShowLoadDialog(false);
+        
+      } catch (error) {
+        alert("Fel vid import: Ogiltig JSON-fil");
+        console.error(error);
+      }
+    };
+    reader.readAsText(file);
+    
+    // Återställ input så samma fil kan väljas igen
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const templates = loadTemplates();
+
+  return (
+    <header className="header" style={{ flexDirection: "column", gap: "8px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+        <h2 style={{ margin: 0 }}>{title}</h2>
+        <button className="btn" onClick={onGoHome}>
+          Spara nuvarande besök och gå till startsidan
+        </button>
+      </div>
+      
+      <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap", width: "100%" }}>
+        <button className="chip" onClick={() => setShowTemplateDialog(true)}>
+          💾 Spara som mall
+        </button>
+        <button className="chip" onClick={() => setShowLoadDialog(true)}>
+          📂 Ladda mall ({templates.length})
+        </button>
+        {lastSaved && (
+          <span className="hint" style={{ marginLeft: "auto" }}>
+            Autosparad: {new Intl.DateTimeFormat("sv-SE", { timeStyle: "medium" }).format(lastSaved)}
+          </span>
+        )}
+      </div>
+
+      {showTemplateDialog && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }} onClick={() => setShowTemplateDialog(false)}>
+          <div className="panel" style={{ width: "min(500px, 90vw)", maxHeight: "80vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div className="panel-h">Spara som mall</div>
+            <div className="panel-b">
+              <div style={{ marginBottom: "12px" }}>
+                <label className="lbl" style={{ display: "block", marginBottom: "4px" }}>Mallnamn *</label>
+                <input
+                  className="inp"
+                  style={{ width: "100%" }}
+                  placeholder="t.ex. Årskontroll Diabetes"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div style={{ marginBottom: "12px" }}>
+                <label className="lbl" style={{ display: "block", marginBottom: "4px" }}>Beskrivning (valfritt)</label>
+                <textarea
+                  className="ta"
+                  rows={3}
+                  placeholder="Beskrivning av mallen..."
+                  value={templateDesc}
+                  onChange={(e) => setTemplateDesc(e.target.value)}
+                />
+              </div>
+              <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                <button className="btn" onClick={() => setShowTemplateDialog(false)}>
+                  Avbryt
+                </button>
+                <button className="btn" style={{ backgroundColor: "#2563eb", color: "#fff" }} onClick={handleSaveTemplate}>
+                  Spara mall
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLoadDialog && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+        }} onClick={() => setShowLoadDialog(false)}>
+          <div className="panel" style={{ width: "min(600px, 90vw)", maxHeight: "80vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div className="panel-h">Ladda mall</div>
+            <div className="panel-b">
+              {/* Export/Import knappar */}
+              <div style={{ marginBottom: "16px", padding: "12px", backgroundColor: "#f9fafb", borderRadius: "8px", border: "1px solid #e5e7eb" }}>
+                <div style={{ fontSize: "13px", fontWeight: "600", marginBottom: "8px", color: "#374151" }}>
+                  💾 Säkerhetskopiera mallar
+                </div>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button 
+                    className="chip" 
+                    onClick={handleExportTemplates}
+                    disabled={templates.length === 0}
+                    style={{ 
+                      backgroundColor: templates.length === 0 ? "#e5e7eb" : "#10b981",
+                      color: templates.length === 0 ? "#9ca3af" : "#fff",
+                      borderColor: templates.length === 0 ? "#e5e7eb" : "#10b981",
+                      cursor: templates.length === 0 ? "not-allowed" : "pointer"
+                    }}
+                  >
+                    ⬇️ Exportera alla mallar
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".json"
+                    onChange={handleImportTemplates}
+                    style={{ display: "none" }}
+                  />
+                  <button 
+                    className="chip" 
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{ 
+                      backgroundColor: "#2563eb",
+                      color: "#fff",
+                      borderColor: "#2563eb"
+                    }}
+                  >
+                    ⬆️ Importera mallar
+                  </button>
+                </div>
+                <div style={{ fontSize: "11px", color: "#6b7280", marginTop: "6px" }}>
+                  Exportera dina mallar för att använda dem på andra datorer/webbläsare
+                </div>
+              </div>
+
+              {templates.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "2rem", opacity: 0.6 }}>
+                  Inga sparade mallar ännu
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  {templates.map((template) => (
+                    <div key={template.id} className="panel" style={{ padding: "12px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
+                        <div style={{ flex: 1, cursor: "pointer" }} onClick={() => {
+                          onLoadTemplate(template);
+                          setShowLoadDialog(false);
+                        }}>
+                          <div style={{ fontWeight: "600", marginBottom: "4px" }}>{template.name}</div>
+                          {template.description && (
+                            <div style={{ fontSize: "13px", opacity: 0.7, marginBottom: "4px" }}>
+                              {template.description}
+                            </div>
+                          )}
+                          <div style={{ fontSize: "12px", opacity: 0.5 }}>
+                            Skapad: {new Intl.DateTimeFormat("sv-SE", { dateStyle: "medium" }).format(new Date(template.createdAt))}
+                          </div>
+                        </div>
+                        <button
+                          className="btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Radera mallen "${template.name}"?`)) {
+                              onDeleteTemplate(template.id);
+                              setShowLoadDialog(false);
+                            }
+                          }}
+                          style={{ flexShrink: 0, color: "#dc2626" }}
+                        >
+                          Radera
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div style={{ marginTop: "12px", textAlign: "right" }}>
+                <button className="btn" onClick={() => setShowLoadDialog(false)}>
+                  Stäng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </header>
+  );
+});
 
 const SokorsakPanel = React.memo(({ 
   visit, 
@@ -723,6 +1102,49 @@ const HistoryScreen = React.memo(({
           TILLBAKA TILL START
         </button>
       </div>
+    </div>
+  );
+});
+
+const ModuleWrapper = React.memo(({
+  module,
+  state,
+  setState,
+  collapsed,
+  toggle,
+  previewText,
+}: {
+  module: ModuleDef;
+  state: any;
+  setState: (patch: Partial<any>) => void;
+  collapsed: boolean;
+  toggle: () => void;
+  previewText: string;
+}) => {
+  return (
+    <div>
+      <module.Component
+        state={state}
+        setState={setState}
+        collapsed={collapsed}
+        toggle={toggle}
+      />
+      {!collapsed && previewText && (
+        <div style={{
+          marginTop: "8px",
+          padding: "8px 12px",
+          backgroundColor: "#f0f9ff",
+          border: "1px solid #bae6fd",
+          borderRadius: "8px",
+          fontSize: "13px",
+          color: "#0c4a6e",
+        }}>
+          <div style={{ fontWeight: "600", marginBottom: "4px", fontSize: "12px", opacity: 0.7 }}>
+            📝 Förhandsvisning:
+          </div>
+          <div style={{ whiteSpace: "pre-wrap" }}>{previewText}</div>
+        </div>
+      )}
     </div>
   );
 });
