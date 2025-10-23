@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import "./styles.css";
 
 /** JonasPromptApp – modulär aggregator med startsida, Sökorsak och förbättrad kopiering */
-const REV = 14;
-const REV_AT = "2025-10-23 23:45"; // visas endast på startsidan
+const REV = 15;
+const REV_AT = "2025-10-24 00:15"; // visas endast på startsidan
 
 // --------- Grupp-typer ---------
 export type Group =
@@ -293,16 +293,29 @@ export default function App() {
     }
 
     const visits = loadVisits();
-    const newVisit: SavedVisit = {
-      id: Date.now().toString(),
-      timestamp: visitOpenedAt || new Date().toISOString(),
+    const timestamp = visitOpenedAt || new Date().toISOString();
+    
+    // Leta efter befintligt besök med samma timestamp (samma session)
+    const existingIndex = visits.findIndex((v) => v.timestamp === timestamp);
+    
+    const visitData: SavedVisit = {
+      id: existingIndex >= 0 ? visits[existingIndex].id : Date.now().toString(),
+      timestamp,
       visit,
       contactReason,
       states: clone(states),
     };
     
-    // Lägg till i början, behåll max 10
-    const updated = [newVisit, ...visits].slice(0, MAX_SAVED_VISITS);
+    let updated: SavedVisit[];
+    if (existingIndex >= 0) {
+      // Uppdatera befintligt besök
+      updated = [...visits];
+      updated[existingIndex] = visitData;
+    } else {
+      // Lägg till nytt besök i början, behåll max 10
+      updated = [visitData, ...visits].slice(0, MAX_SAVED_VISITS);
+    }
+    
     saveVisits(updated);
     setLastSaved(new Date());
   }, [visit, contactReason, states, visitOpenedAt]);
