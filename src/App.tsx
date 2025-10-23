@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import "./styles.css";
 
 /** JonasPromptApp – modulär aggregator med startsida, Sökorsak och förbättrad kopiering */
-const REV = 15;
-const REV_AT = "2025-10-24 00:15"; // visas endast på startsidan
+const REV = 17;
+const REV_AT = "2025-10-24 00:45"; // visas endast på startsidan
 
 // --------- Grupp-typer ---------
 export type Group =
@@ -191,6 +191,8 @@ export default function App() {
   const moduleTexts = useMemo(() => {
     return MODS.map((m) => ({
       group: m.group,
+      moduleId: m.id,
+      moduleTitle: m.title,
       text: (m.buildText(states[m.id]) || "").trim(),
     })).filter((x) => x.text.length > 0);
   }, [states]);
@@ -207,11 +209,16 @@ export default function App() {
     return sokLines.length ? sokLines.join(" ") : "";
   }, [visit, contactReason]);
 
-  const { allText, byGroup, ranges } = useMemo(() => {
+  const { allText, byGroup, ranges, modulesByGroup } = useMemo(() => {
     // Kombinera alla texter
     const pieces = [...moduleTexts];
     if (sokorsakText) {
-      pieces.unshift({ group: "sokorsak" as Group, text: sokorsakText });
+      pieces.unshift({ 
+        group: "sokorsak" as Group, 
+        moduleId: "sokorsak", 
+        moduleTitle: "Sökorsak",
+        text: sokorsakText 
+      });
     }
 
     // Gruppera
@@ -223,9 +230,25 @@ export default function App() {
       status: "",
       bedomning: "",
     };
+    
+    // Gruppera moduler per grupp (för visuell distinktion)
+    const modulesByGroup: Record<Group, Array<{ moduleId: string; moduleTitle: string; text: string }>> = {
+      sokorsak: [],
+      sjukhistoria: [],
+      livsstil: [],
+      anamnes: [],
+      status: [],
+      bedomning: [],
+    };
+    
     for (const g of GROUP_ORDER) {
-      const block = pieces.filter((p) => p.group === g).map((p) => p.text).join("\n");
-      byGroup[g] = block;
+      const groupPieces = pieces.filter((p) => p.group === g);
+      byGroup[g] = groupPieces.map((p) => p.text).join("\n");
+      modulesByGroup[g] = groupPieces.map((p) => ({
+        moduleId: p.moduleId,
+        moduleTitle: p.moduleTitle,
+        text: p.text,
+      }));
     }
 
     // Hela texten + intervall
@@ -254,7 +277,7 @@ export default function App() {
     });
     ranges.all = [0, all.length];
 
-    return { allText: all, byGroup, ranges };
+    return { allText: all, byGroup, ranges, modulesByGroup };
   }, [moduleTexts, sokorsakText]);
 
   // ---- Kopiering med markerings-feedback ----
@@ -492,6 +515,8 @@ export default function App() {
               copied={copied}
               onCopy={copy}
               taRef={taRef}
+              byGroup={byGroup}
+              modulesByGroup={modulesByGroup}
             />
           </section>
         </div>
@@ -880,45 +905,210 @@ const SokorsakPanel = React.memo(({
 
 type CopyMode = "all" | Group;
 
+const GROUP_COLORS: Record<Group, { bg: string; border: string; text: string }> = {
+  sokorsak: { bg: "#fef3c7", border: "#fbbf24", text: "#78350f" },
+  sjukhistoria: { bg: "#fee2e2", border: "#f87171", text: "#7f1d1d" },
+  livsstil: { bg: "#dcfce7", border: "#4ade80", text: "#14532d" },
+  anamnes: { bg: "#e0e7ff", border: "#818cf8", text: "#312e81" },
+  status: { bg: "#ddd6fe", border: "#a78bfa", text: "#4c1d95" },
+  bedomning: { bg: "#fce7f3", border: "#f472b6", text: "#831843" },
+};
+
 const OutputPanel = React.memo(({ 
   allText, 
   copied, 
   onCopy, 
-  taRef 
+  taRef,
+  byGroup,
+  modulesByGroup,
 }: {
   allText: string;
   copied: CopyMode | null;
   onCopy: (mode: CopyMode) => void;
   taRef: React.RefObject<HTMLTextAreaElement | null>;
-}) => (
-  <div className="panel flexcol">
-    <div className="panel-h">Genererad text</div>
-    <div className="panel-b">
-      <div className="row wrap tight mb">
-        <button
-          className={"chip" + (copied === "all" ? " active" : "")}
-          onClick={() => onCopy("all")}
-          title="Kopiera allt"
-        >
-          Kopiera: Alla
-        </button>
-        {GROUP_ORDER.map((g) => (
-          <button
-            key={g}
-            className={"chip" + (copied === g ? " active" : "")}
-            onClick={() => onCopy(g)}
-            title={`Kopiera ${GROUP_LABEL[g]}`}
-          >
-            {GROUP_LABEL[g]}
-          </button>
-        ))}
-      </div>
+  byGroup: Record<Group, string>;
+  modulesByGroup: Record<Group, Array<{ moduleId: string; moduleTitle: string; text: string }>>;
+}) => {
+  const [viewMode, setViewMode] = React.useState<"formatted" | "plain">("formatted");
 
-      <textarea ref={taRef} className="ta grow" readOnly value={allText} />
-      <p className="hint mt">Texten som kopieras markeras i rutan.</p>
+  // Funktion för att göra färgen lite mörkare för submoduler
+  const darkenColor = (hex: string, percent: number) => {
+    const num = parseInt(hex.replace("#", ""), 16);
+    const r = Math.max(0, ((num >> 16) & 0xff) * (1 - percent));
+    const g = Math.max(0, ((num >> 8) & 0xff) * (1 - percent));
+    const b = Math.max(0, (num & 0xff) * (1 - percent));
+    return "#" + ((1 << 24) + (Math.round(r) << 16) + (Math.round(g) << 8) + Math.round(b)).toString(16).slice(1);
+  };
+
+  return (
+    <div className="panel flexcol">
+      <div className="panel-h">Genererad text</div>
+      <div className="panel-b">
+        <div className="row wrap tight mb">
+          <button
+            className={"chip" + (copied === "all" ? " active" : "")}
+            onClick={() => onCopy("all")}
+            title="Kopiera allt"
+          >
+            📋 Kopiera allt
+          </button>
+          {GROUP_ORDER.map((g) => {
+            if (!byGroup[g]) return null;
+            const colors = GROUP_COLORS[g];
+            return (
+              <button
+                key={g}
+                className={"chip" + (copied === g ? " active" : "")}
+                onClick={() => onCopy(g)}
+                title={`Kopiera ${GROUP_LABEL[g]}`}
+                style={
+                  copied === g
+                    ? undefined
+                    : {
+                        backgroundColor: colors.bg,
+                        borderColor: colors.border,
+                        color: colors.text,
+                      }
+                }
+              >
+                {GROUP_LABEL[g]}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="row tight mb">
+          <button
+            className={"chip" + (viewMode === "formatted" ? " active" : "")}
+            onClick={() => setViewMode("formatted")}
+          >
+            🎨 Formaterad vy
+          </button>
+          <button
+            className={"chip" + (viewMode === "plain" ? " active" : "")}
+            onClick={() => setViewMode("plain")}
+          >
+            📄 Enkel vy
+          </button>
+        </div>
+
+        {viewMode === "formatted" ? (
+          <div style={{ 
+            overflow: "auto",
+            border: "1px solid #e5e7eb",
+            borderRadius: "10px",
+            backgroundColor: "#fafafa",
+            minHeight: "300px",
+          }}>
+            {GROUP_ORDER.map((g) => {
+              const modules = modulesByGroup[g];
+              if (!modules || modules.length === 0) return null;
+              const colors = GROUP_COLORS[g];
+              
+              return (
+                <div
+                  key={g}
+                  style={{
+                    margin: "8px",
+                    padding: "12px",
+                    backgroundColor: colors.bg,
+                    border: `2px solid ${colors.border}`,
+                    borderRadius: "8px",
+                    position: "relative",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: "700",
+                      textTransform: "uppercase",
+                      color: colors.text,
+                      marginBottom: modules.length > 1 ? "12px" : "8px",
+                      opacity: 0.8,
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    {GROUP_LABEL[g]}
+                  </div>
+                  
+                  {/* Visa moduler som subsektioner om det finns fler än 1 */}
+                  {modules.length > 1 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {modules.map((mod, idx) => (
+                        <div
+                          key={mod.moduleId}
+                          style={{
+                            padding: "10px",
+                            backgroundColor: `rgba(255, 255, 255, ${0.3 + idx * 0.1})`,
+                            borderRadius: "6px",
+                            border: `1px solid ${darkenColor(colors.border, 0.1)}`,
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: "10px",
+                              fontWeight: "600",
+                              color: colors.text,
+                              marginBottom: "6px",
+                              opacity: 0.7,
+                            }}
+                          >
+                            {mod.moduleTitle}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "13px",
+                              lineHeight: "1.6",
+                              color: colors.text,
+                              whiteSpace: "pre-wrap",
+                              fontFamily: "inherit",
+                            }}
+                          >
+                            {mod.text}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        fontSize: "13px",
+                        lineHeight: "1.6",
+                        color: colors.text,
+                        whiteSpace: "pre-wrap",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      {modules[0].text}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {!allText && (
+              <div style={{ 
+                padding: "2rem", 
+                textAlign: "center", 
+                opacity: 0.5,
+                color: "#6b7280" 
+              }}>
+                Börja fylla i formulären för att generera text...
+              </div>
+            )}
+          </div>
+        ) : (
+          <textarea ref={taRef} className="ta grow" readOnly value={allText} />
+        )}
+        
+        <p className="hint mt">
+          {viewMode === "formatted" 
+            ? "Formaterad vy visar text i färgade sektioner. Byt till enkel vy för att se markeringar vid kopiering."
+            : "Texten som kopieras markeras i rutan."}
+        </p>
+      </div>
     </div>
-  </div>
-));
+  );
+});
 
 const HistoryScreen = React.memo(({ 
   onGoHome, 
