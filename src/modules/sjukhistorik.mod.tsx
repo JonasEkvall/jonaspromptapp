@@ -32,8 +32,8 @@ function buildText(s: State) {
 const def: ModuleDef<State> = {
   id: "sjukhistorik",
   title: "Sjukhistoria",
-  order: 20,
-  group: "status",
+  order: 5,
+  group: "sjukhistoria",
   initialState: { sjukhistoria: "" },
   Component,
   buildText,
