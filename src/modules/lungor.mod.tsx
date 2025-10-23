@@ -44,6 +44,7 @@ type LungsState = {
   bilRassel: boolean;
   bilRasselPlaces: Place[];
   bilRasselFree: string;
+  bilRasselDiscrete: boolean;
   
   bilObstr: boolean;
   bilObstrPlaces: Place[];
@@ -86,6 +87,7 @@ const LungorModule: ModuleDef<LungsState> = {
     bilRassel: false,
     bilRasselPlaces: [],
     bilRasselFree: "",
+    bilRasselDiscrete: false,
     
     bilObstr: false,
     bilObstrPlaces: [],
@@ -129,6 +131,7 @@ const LungorModule: ModuleDef<LungsState> = {
                   bilRassel: e.target.checked ? false : state.bilRassel,
                   bilRasselPlaces: e.target.checked ? [] : state.bilRasselPlaces,
                   bilRasselFree: e.target.checked ? "" : state.bilRasselFree,
+                  bilRasselDiscrete: e.target.checked ? false : state.bilRasselDiscrete,
                   bilObstr: e.target.checked ? false : state.bilObstr,
                   bilObstrPlaces: e.target.checked ? [] : state.bilObstrPlaces,
                   bilObstrFree: e.target.checked ? "" : state.bilObstrFree,
@@ -350,7 +353,13 @@ const LungorModule: ModuleDef<LungsState> = {
                   >
                     {p}
                   </button>
-                ))}
+                )                )}
+                <button
+                  className={"chip " + (state.bilRasselDiscrete ? "active" : "")}
+                  onClick={() => setState({ bilRasselDiscrete: !state.bilRasselDiscrete })}
+                >
+                  Diskreta
+                </button>
                 <input
                   className="inp"
                   placeholder="Fritext (rassel)"
@@ -517,13 +526,18 @@ const LungorModule: ModuleDef<LungsState> = {
       }
     }
     if (s.bilRassel) {
+      let rasselText = "rassel";
+      if (s.bilRasselDiscrete) {
+        rasselText = "diskreta rassel";
+      }
+      
       if (s.bilRasselPlaces.length === 0 && !s.bilRasselFree.trim()) {
-        auscultationParts.push("rassel");
+        auscultationParts.push(rasselText);
       } else {
         const places: string[] = [];
         if (s.bilRasselPlaces.length) places.push(s.bilRasselPlaces.join(", "));
         if (s.bilRasselFree.trim()) places.push(s.bilRasselFree.trim());
-        auscultationParts.push(`rassel ${places.join(", ")}`);
+        auscultationParts.push(`${rasselText} ${places.join(", ")}`);
       }
     }
     if (s.bilObstr) {
