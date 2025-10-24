@@ -300,7 +300,7 @@ function buildText(s: State) {
 const def: ModuleDef<State> = {
   id: "labbmm",
   title: "Labb mm",
-  order: 6,
+  order: 60,
   group: "labb",
   initialState: { 
     blodtryck: "",
