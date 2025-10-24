@@ -2,6 +2,7 @@
 import type { ModuleDef, ModuleProps } from "../App";
 
 type PalpationPlace = 
+  | "generellt"
   | "höger fossa"
   | "vänster fossa" 
   | "epigastriet"
@@ -10,6 +11,7 @@ type PalpationPlace =
   | "vänster arcus";
 
 const ALL_PALPATION_PLACES: PalpationPlace[] = [
+  "generellt",
   "höger fossa",
   "vänster fossa",
   "epigastriet", 
@@ -48,14 +50,19 @@ type AbdState = {
   
   // Palpation
   muskelforsvar: boolean;
+  muskelforsvarUA: boolean;
   muskelforsvarLokal: string;
+  muskelforsvarPlaces: string[];
   omhet: boolean;
+  omhetUA: boolean;
   omhetLokal: string;
   omhetPlaces: string[];
   smarta: boolean;
+  smartaUA: boolean;
   smartaLokal: string;
   smartaPlaces: string[];
   organforstoring: boolean;
+  organforstoringUA: boolean;
   organforstoringText: string;
   palpationFree: string;
   
@@ -98,14 +105,19 @@ const BukModule: ModuleDef<AbdState> = {
     
     // Palpation
     muskelforsvar: false,
+    muskelforsvarUA: false,
     muskelforsvarLokal: "",
+    muskelforsvarPlaces: [],
     omhet: false,
+    omhetUA: false,
     omhetLokal: "",
     omhetPlaces: [],
     smarta: false,
+    smartaUA: false,
     smartaLokal: "",
     smartaPlaces: [],
     organforstoring: false,
+    organforstoringUA: false,
     organforstoringText: "",
     palpationFree: "",
     
@@ -151,14 +163,19 @@ const BukModule: ModuleDef<AbdState> = {
                   dampad: e.target.checked ? false : state.dampad,
                   dampadFree: e.target.checked ? "" : state.dampadFree,
                   muskelforsvar: e.target.checked ? false : state.muskelforsvar,
+                  muskelforsvarUA: e.target.checked ? false : state.muskelforsvarUA,
                   muskelforsvarLokal: e.target.checked ? "" : state.muskelforsvarLokal,
+                  muskelforsvarPlaces: e.target.checked ? [] : state.muskelforsvarPlaces,
                   omhet: e.target.checked ? false : state.omhet,
+                  omhetUA: e.target.checked ? false : state.omhetUA,
                   omhetLokal: e.target.checked ? "" : state.omhetLokal,
                   omhetPlaces: e.target.checked ? [] : state.omhetPlaces,
                   smarta: e.target.checked ? false : state.smarta,
+                  smartaUA: e.target.checked ? false : state.smartaUA,
                   smartaLokal: e.target.checked ? "" : state.smartaLokal,
                   smartaPlaces: e.target.checked ? [] : state.smartaPlaces,
                   organforstoring: e.target.checked ? false : state.organforstoring,
+                  organforstoringUA: e.target.checked ? false : state.organforstoringUA,
                   organforstoringText: e.target.checked ? "" : state.organforstoringText,
                   palpationFree: e.target.checked ? "" : state.palpationFree,
                   brackportarUA: e.target.checked ? false : state.brackportarUA,
@@ -333,18 +350,49 @@ const BukModule: ModuleDef<AbdState> = {
               className={"chip " + (state.muskelforsvar ? "active" : "")}
               onClick={() => {
                 clearUA();
-                setState({ muskelforsvar: !state.muskelforsvar, muskelforsvarLokal: "" });
+                setState({ muskelforsvar: !state.muskelforsvar, muskelforsvarUA: false, muskelforsvarPlaces: [], muskelforsvarLokal: "" });
               }}
             >
               Muskelförsvar
             </button>
+
             {state.muskelforsvar && (
-              <input
-                className="inp"
-                placeholder="Lokalisation (muskelförsvar)"
-                value={state.muskelforsvarLokal}
-                onChange={(e) => setState({ muskelforsvarLokal: e.target.value })}
-              />
+              <>
+                <span className="lbl">Muskelförsvar:</span>
+                <button
+                  className={"chip " + (state.muskelforsvarUA ? "active" : "")}
+                  style={{
+                    fontStyle: 'italic',
+                    backgroundColor: state.muskelforsvarUA ? '#007bff' : '#e3f2fd',
+                    border: '1px dashed #2196f3',
+                    fontSize: '0.9em'
+                  }}
+                  onClick={() => setState({ muskelforsvarUA: !state.muskelforsvarUA })}
+                >
+                  Inget
+                </button>
+                {ALL_PALPATION_PLACES.map((p) => (
+                  <button
+                    key={p}
+                    className={"chip " + (state.muskelforsvarPlaces.includes(p) ? "active" : "")}
+                    style={{
+                      fontStyle: 'italic',
+                      backgroundColor: state.muskelforsvarPlaces.includes(p) ? '#007bff' : '#e3f2fd',
+                      border: '1px dashed #2196f3',
+                      fontSize: '0.9em'
+                    }}
+                    onClick={() => setState({ muskelforsvarPlaces: toggle(state.muskelforsvarPlaces, p) })}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <input
+                  className="inp"
+                  placeholder="Lokalisation (muskelförsvar)"
+                  value={state.muskelforsvarLokal}
+                  onChange={(e) => setState({ muskelforsvarLokal: e.target.value })}
+                />
+              </>
             )}
           </div>
 
@@ -353,7 +401,7 @@ const BukModule: ModuleDef<AbdState> = {
               className={"chip " + (state.omhet ? "active" : "")}
               onClick={() => {
                 clearUA();
-                setState({ omhet: !state.omhet, omhetPlaces: [], omhetLokal: "" });
+                setState({ omhet: !state.omhet, omhetUA: false, omhetPlaces: [], omhetLokal: "" });
               }}
             >
               Ömhet
@@ -362,6 +410,18 @@ const BukModule: ModuleDef<AbdState> = {
             {state.omhet && (
               <>
                 <span className="lbl">Ömhet:</span>
+                <button
+                  className={"chip " + (state.omhetUA ? "active" : "")}
+                  style={{
+                    fontStyle: 'italic',
+                    backgroundColor: state.omhetUA ? '#007bff' : '#e3f2fd',
+                    border: '1px dashed #2196f3',
+                    fontSize: '0.9em'
+                  }}
+                  onClick={() => setState({ omhetUA: !state.omhetUA })}
+                >
+                  Ingen
+                </button>
                 {ALL_PALPATION_PLACES.map((p) => (
                   <button
                     key={p}
@@ -392,7 +452,7 @@ const BukModule: ModuleDef<AbdState> = {
               className={"chip " + (state.smarta ? "active" : "")}
               onClick={() => {
                   clearUA();
-                setState({ smarta: !state.smarta, smartaPlaces: [], smartaLokal: "" });
+                setState({ smarta: !state.smarta, smartaUA: false, smartaPlaces: [], smartaLokal: "" });
               }}
             >
               Smärta
@@ -401,6 +461,18 @@ const BukModule: ModuleDef<AbdState> = {
             {state.smarta && (
               <>
                 <span className="lbl">Smärta:</span>
+                <button
+                  className={"chip " + (state.smartaUA ? "active" : "")}
+                  style={{
+                    fontStyle: 'italic',
+                    backgroundColor: state.smartaUA ? '#007bff' : '#e3f2fd',
+                    border: '1px dashed #2196f3',
+                    fontSize: '0.9em'
+                  }}
+                  onClick={() => setState({ smartaUA: !state.smartaUA })}
+                >
+                  Ingen
+                </button>
                 {ALL_PALPATION_PLACES.map((p) => (
                   <button
                     key={p}
@@ -431,18 +503,32 @@ const BukModule: ModuleDef<AbdState> = {
               className={"chip " + (state.organforstoring ? "active" : "")}
               onClick={() => {
                 clearUA();
-                setState({ organforstoring: !state.organforstoring, organforstoringText: "" });
+                setState({ organforstoring: !state.organforstoring, organforstoringUA: false, organforstoringText: "" });
               }}
             >
               Organförstoring
             </button>
             {state.organforstoring && (
-              <input
-                className="inp"
-                placeholder="Vilket organ"
-                value={state.organforstoringText}
-                onChange={(e) => setState({ organforstoringText: e.target.value })}
-              />
+              <>
+                <button
+                  className={"chip " + (state.organforstoringUA ? "active" : "")}
+                  style={{
+                    fontStyle: 'italic',
+                    backgroundColor: state.organforstoringUA ? '#007bff' : '#e3f2fd',
+                    border: '1px dashed #2196f3',
+                    fontSize: '0.9em'
+                  }}
+                  onClick={() => setState({ organforstoringUA: !state.organforstoringUA })}
+                >
+                  Ingen
+                </button>
+                <input
+                  className="inp"
+                  placeholder="Vilket organ"
+                  value={state.organforstoringText}
+                  onChange={(e) => setState({ organforstoringText: e.target.value })}
+                />
+              </>
             )}
           </div>
 
@@ -520,14 +606,19 @@ const BukModule: ModuleDef<AbdState> = {
       s.dampad ||
       !!s.dampadFree.trim() ||
       s.muskelforsvar ||
+      s.muskelforsvarUA ||
+      s.muskelforsvarPlaces.length > 0 ||
       !!s.muskelforsvarLokal.trim() ||
       s.omhet ||
+      s.omhetUA ||
       s.omhetPlaces.length > 0 ||
       !!s.omhetLokal.trim() ||
       s.smarta ||
+      s.smartaUA ||
       s.smartaPlaces.length > 0 ||
       !!s.smartaLokal.trim() ||
       s.organforstoring ||
+      s.organforstoringUA ||
       !!s.organforstoringText.trim() ||
       !!s.palpationFree.trim() ||
       s.brackportarUA ||
@@ -592,25 +683,44 @@ const BukModule: ModuleDef<AbdState> = {
     // Palpation
     const palpationParts: string[] = [];
     if (s.muskelforsvar) {
-      const muskelforsvarText = s.muskelforsvarLokal.trim() ? `muskelförsvar ${s.muskelforsvarLokal.trim()}` : "muskelförsvar";
-      palpationParts.push(muskelforsvarText);
+      if (s.muskelforsvarUA) {
+        palpationParts.push("inget muskelförsvar");
+      } else {
+        const muskelforsvarPlaces: string[] = [];
+        if (s.muskelforsvarPlaces.length > 0) muskelforsvarPlaces.push(s.muskelforsvarPlaces.join(", "));
+        if (s.muskelforsvarLokal.trim()) muskelforsvarPlaces.push(s.muskelforsvarLokal.trim());
+        const muskelforsvarText = muskelforsvarPlaces.length > 0 ? `muskelförsvar ${muskelforsvarPlaces.join(", ")}` : "muskelförsvar";
+        palpationParts.push(muskelforsvarText);
+      }
     }
     if (s.omhet) {
-      const omhetPlaces: string[] = [];
-      if (s.omhetPlaces.length > 0) omhetPlaces.push(s.omhetPlaces.join(", "));
-      if (s.omhetLokal.trim()) omhetPlaces.push(s.omhetLokal.trim());
-      const omhetText = omhetPlaces.length > 0 ? `ömhet ${omhetPlaces.join(", ")}` : "ömhet";
-      palpationParts.push(omhetText);
+      if (s.omhetUA) {
+        palpationParts.push("ingen ömhet");
+      } else {
+        const omhetPlaces: string[] = [];
+        if (s.omhetPlaces.length > 0) omhetPlaces.push(s.omhetPlaces.join(", "));
+        if (s.omhetLokal.trim()) omhetPlaces.push(s.omhetLokal.trim());
+        const omhetText = omhetPlaces.length > 0 ? `ömhet ${omhetPlaces.join(", ")}` : "ömhet";
+        palpationParts.push(omhetText);
+      }
     }
     if (s.smarta) {
-      const smartaPlaces: string[] = [];
-      if (s.smartaPlaces.length > 0) smartaPlaces.push(s.smartaPlaces.join(", "));
-      if (s.smartaLokal.trim()) smartaPlaces.push(s.smartaLokal.trim());
-      const smartaText = smartaPlaces.length > 0 ? `smärta ${smartaPlaces.join(", ")}` : "smärta";
-      palpationParts.push(smartaText);
+      if (s.smartaUA) {
+        palpationParts.push("ingen smärta");
+      } else {
+        const smartaPlaces: string[] = [];
+        if (s.smartaPlaces.length > 0) smartaPlaces.push(s.smartaPlaces.join(", "));
+        if (s.smartaLokal.trim()) smartaPlaces.push(s.smartaLokal.trim());
+        const smartaText = smartaPlaces.length > 0 ? `smärta ${smartaPlaces.join(", ")}` : "smärta";
+        palpationParts.push(smartaText);
+      }
     }
-    if (s.organforstoring && s.organforstoringText.trim()) {
-      palpationParts.push(`organförstoring ${s.organforstoringText.trim()}`);
+    if (s.organforstoring) {
+      if (s.organforstoringUA) {
+        palpationParts.push("ingen organförstoring");
+      } else if (s.organforstoringText.trim()) {
+        palpationParts.push(`organförstoring ${s.organforstoringText.trim()}`);
+      }
     }
     if (s.palpationFree.trim()) palpationParts.push(s.palpationFree.trim());
     

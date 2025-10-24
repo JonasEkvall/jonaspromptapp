@@ -5,6 +5,7 @@ type TimeUnit = "dagar" | "veckor" | "månader" | "år";
 
 type BedUppfState = {
   // Bedömning
+  valmående: boolean;
   okomplicerad: string[];
   okomplicFritext: string;
   bedText: string;
@@ -33,6 +34,7 @@ const BedUppfModule: ModuleDef<BedUppfState> = {
   order: 90,
   group: "bedomning",
   initialState: {
+    valmående: false,
     okomplicerad: [],
     okomplicFritext: "",
     bedText: "",
@@ -61,6 +63,16 @@ const BedUppfModule: ModuleDef<BedUppfState> = {
           <span>Bedömning/uppföljning</span>
         </button>
         <div className="panel-b">
+          {/* Välmående patient */}
+          <div className="row wrap tight mb">
+            <button
+              className={"chip " + (state.valmående ? "active" : "")}
+              onClick={() => setState({ valmående: !state.valmående })}
+            >
+              Välmående patient
+            </button>
+          </div>
+
           {/* Bedöms som okomplicerad */}
           <div className="row wrap tight mb">
             <span className="lbl">Bedöms som okomplicerad:</span>
@@ -391,6 +403,11 @@ const BedUppfModule: ModuleDef<BedUppfState> = {
   buildText: (s: BedUppfState) => {
     const blocks: string[] = [];
 
+    // Välmående patient
+    if (s.valmående) {
+      blocks.push("Välmående patient.");
+    }
+
     // Bedöms som okomplicerad
     const okomp: string[] = [];
     if (s.okomplicerad.length > 0) {
@@ -526,6 +543,40 @@ const BedUppfModule: ModuleDef<BedUppfState> = {
     });
 
     if (s.prov) plan.push("Återkoppling när provsvar föreligger.");
+    
+    // Åter vid behov - läggs automatiskt till om modulen har något innehåll
+    const hasContent = 
+      s.valmående ||
+      s.okomplicerad.length > 0 ||
+      s.okomplicFritext.trim() ||
+      s.bedText.trim() ||
+      s.ingaTeckenAllvarlig ||
+      s.blodtryck.status !== "" ||
+      s.blodtryck.fritext.trim() ||
+      s.blodsocker.status !== "" ||
+      s.blodsocker.fritext.trim() ||
+      s.blodfetter.status !== "" ||
+      s.blodfetter.fritext.trim() ||
+      s.atgardText.trim() ||
+      s.planText.trim() ||
+      s.ingen ||
+      aterVisits.length > 0 ||
+      s.prov;
+    
+    if (hasContent) {
+      // Kontrollera om det finns andra uppföljningar än "Ingen planerad uppföljning"
+      const harAnnanUppfoljning = 
+        aterVisits.length > 0 || 
+        s.prov || 
+        s.planText.trim() !== "";
+      
+      if (harAnnanUppfoljning) {
+        plan.push("I övrigt åter vid behov.");
+      } else {
+        plan.push("Åter vid behov.");
+      }
+    }
+    
     if (plan.length) blocks.push(`Plan: ${plan.join(" ")}`);
 
     return blocks.join(" ");
