@@ -485,6 +485,8 @@ export default function App() {
           onSaveTemplate={saveAsTemplate}
           onLoadTemplate={loadTemplate}
           onDeleteTemplate={deleteTemplate}
+          onCollapseAll={() => setCollapsed(Object.fromEntries(MODS.map((m) => [m.id, true])))}
+          onExpandAll={() => setCollapsed(Object.fromEntries(MODS.map((m) => [m.id, false])))}
         />
 
         <div className="grid">
@@ -580,6 +582,8 @@ const VisitHeader = React.memo(({
   onSaveTemplate,
   onLoadTemplate,
   onDeleteTemplate,
+  onCollapseAll,
+  onExpandAll,
 }: { 
   title: string; 
   onGoHome: () => void;
@@ -587,6 +591,8 @@ const VisitHeader = React.memo(({
   onSaveTemplate: (name: string, desc: string) => boolean;
   onLoadTemplate: (template: Template) => void;
   onDeleteTemplate: (id: string) => void;
+  onCollapseAll: () => void;
+  onExpandAll: () => void;
 }) => {
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
@@ -699,6 +705,22 @@ const VisitHeader = React.memo(({
         <button className="chip" onClick={() => setShowLoadDialog(true)}>
           📂 Ladda mall ({templates.length})
         </button>
+        
+        {/* Separator */}
+        <div style={{ 
+          width: "1px", 
+          height: "24px", 
+          backgroundColor: "#d1d5db",
+          margin: "0 4px"
+        }} />
+        
+        <button className="chip" onClick={onExpandAll}>
+          ▼ Öppna alla
+        </button>
+        <button className="chip" onClick={onCollapseAll}>
+          ▲ Stäng alla
+        </button>
+        
         {lastSaved && (
           <span className="hint" style={{ marginLeft: "auto" }}>
             Autosparad: {new Intl.DateTimeFormat("sv-SE", { timeStyle: "medium" }).format(lastSaved)}
