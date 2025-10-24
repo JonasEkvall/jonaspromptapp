@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import "./styles.css";
 
 /** JonasPromptApp – modulär aggregator med startsida, Sökorsak och förbättrad kopiering */
-const REV = 17;
-const REV_AT = "2025-10-24 00:45"; // visas endast på startsidan
+const REV = 18;
+const REV_AT = "2025-10-24 14:30"; // visas endast på startsidan
 
 // --------- Grupp-typer ---------
 export type Group =
