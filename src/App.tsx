@@ -535,6 +535,63 @@ export default function App() {
 }
 
 // ---- Komponenter ----
+
+// Slumpmässiga splash-texter (Minecraft-stil)
+const SPLASH_TEXTS = [
+  // Med fotnoter
+  "Testad av \"riktiga\" läkare!*",
+  "Rekommenderas av 4 av 5!**",
+  "Kliniskt bevisad!***",
+  "Godkänd av etikkommittén!****",
+  "Ingen AI skadades vid utveckling!*****",
+  
+  // Utan fotnoter
+  "Optimerad för snabba anteckningar!",
+  "Också bra på fejkdata!",
+  "Modulär som LEGO!",
+  "Rev 18 är objektivt bäst!",
+  "Funkar bäst på nattpass!",
+  "Innehåller spår av kaffe!",
+  "Sparar tid, lovar!",
+  "Bättre än papper!",
+  "Väntar fortfarande på CE-märkning!",
+  "Ditt eget klicksystem i väntan på Millenium!",
+  "Byggd med React och önsketänkande!",
+  "Mer pålitlig än mitt minne!",
+  "Buggar inkluderade gratis!",
+  "Kod ÄR dokumentation!",
+  "Fortfarande bättre än fax!",
+  "Läser dina tankar (nästan)!",
+  "Drivs av rent hopp!",
+  "Funkar offline (mestadels)!",
+  "Djurtestad: Nej. Läkartestad: Kanske.",
+  "Faktiskt användbar!",
+  "Nya buggar varje dag!",
+  "Innehåller 0% homeopati!",
+  "Simulerar medicin sedan 2024!",
+  "Snabbare än att leta i journalsystemet!",
+  "ICD-10 optional!",
+  "Stöder copy-paste medicin!",
+  "Ingen blå skärm här!",
+  "Auskulterar kod dagligen!",
+  "Kompilerar snabbare än kaffe brygger!",
+  "Innehåller inga konserveringsmedel!",
+  "Biverkningar: Ökad produktivitet!",
+  "Doseras efter behov!",
+  "Testad mot placebo!",
+  "Funkar tills det inte gör det!",
+  "Saknar helt evidensbas!",
+];
+
+// Fotnoter för splash-texter
+const SPLASH_FOOTNOTES: Record<string, string> = {
+  "*": "*Riktighet är subjektivt",
+  "**": "*Den femte har inte svarat än",
+  "***": "*Bevis ej bifogat",
+  "****": "*Vi har ingen etikkommitté",
+  "*****": "*Claude hjälpte till \"frivilligt\"",
+};
+
 const HomeScreen = React.memo(({ 
   onStartVisit, 
   onShowHistory 
@@ -544,11 +601,49 @@ const HomeScreen = React.memo(({
 }) => {
   const visits = loadVisits();
   const hasVisits = visits.length > 0;
+  
+  // Välj två olika slumpmässiga texter
+  const [randomSplash, randomSplashLeft] = React.useMemo(() => {
+    // Separera texter med och utan asterisk
+    const textsWithAsterisk = SPLASH_TEXTS.filter(t => t.includes('*'));
+    const textsWithoutAsterisk = SPLASH_TEXTS.filter(t => !t.includes('*'));
+    
+    // Blanda texterna utan asterisk
+    const shuffledNoAsterisk = [...textsWithoutAsterisk].sort(() => Math.random() - 0.5);
+    
+    // Slumpa om höger sida ska ha asterisktext (50% chans)
+    const showAsteriskOnRight = Math.random() > 0.5 && textsWithAsterisk.length > 0;
+    
+    if (showAsteriskOnRight) {
+      // Höger: asterisktext, Vänster: vanlig text
+      const rightText = textsWithAsterisk[Math.floor(Math.random() * textsWithAsterisk.length)];
+      const leftText = shuffledNoAsterisk[0];
+      return [rightText, leftText];
+    } else {
+      // Båda: vanliga texter
+      return [shuffledNoAsterisk[0], shuffledNoAsterisk[1]];
+    }
+  }, []);
+
+  // Kolla om höger text har asterisk och visa motsvarande fotnot
+  const footnote = React.useMemo(() => {
+    if (!randomSplash.includes('*')) return null;
+    
+    // Extrahera asteriskmarkörer (**, *)
+    const match = randomSplash.match(/(\*+)/);
+    if (match) {
+      const marker = match[1];
+      return SPLASH_FOOTNOTES[marker] || null;
+    }
+    return null;
+  }, [randomSplash]);
 
   return (
     <div className="wrap home">
       <div className="container homec">
         <div className="hero elegant">
+          <div className="splash-text">{randomSplash}</div>
+          <div className="splash-text-left">{randomSplashLeft}</div>
           <h1>
             <span className="brand">Jonas</span>PromptApp
           </h1>
@@ -569,6 +664,19 @@ const HomeScreen = React.memo(({
         >
           TIDIGARE BESÖK ({visits.length})
         </button>
+
+        {footnote && (
+          <p style={{ 
+            fontSize: "12px", 
+            color: "#fbbf24", 
+            textAlign: "center",
+            marginTop: "8px",
+            fontStyle: "italic",
+            opacity: 0.8
+          }}>
+            {footnote}
+          </p>
+        )}
 
       </div>
     </div>
