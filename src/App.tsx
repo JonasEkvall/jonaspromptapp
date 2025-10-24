@@ -12,6 +12,7 @@ export type Group =
   | "livsstil"
   | "anamnes"
   | "status"
+  | "labb"
   | "bedomning";
 
 const GROUP_ORDER: Group[] = [
@@ -20,6 +21,7 @@ const GROUP_ORDER: Group[] = [
   "livsstil",
   "anamnes",
   "status",
+  "labb",
   "bedomning",
 ];
 
@@ -29,6 +31,7 @@ const GROUP_LABEL: Record<Group, string> = {
   livsstil: "Livsstil/socialt",
   anamnes: "Anamnes",
   status: "Status",
+  labb: "Labb mm",
   bedomning: "Bedömning/uppföljning",
 };
 
@@ -228,6 +231,7 @@ export default function App() {
       livsstil: "",
       anamnes: "",
       status: "",
+      labb: "",
       bedomning: "",
     };
     
@@ -238,6 +242,7 @@ export default function App() {
       livsstil: [],
       anamnes: [],
       status: [],
+      labb: [],
       bedomning: [],
     };
     
@@ -260,6 +265,7 @@ export default function App() {
       livsstil: [0, 0],
       anamnes: [0, 0],
       status: [0, 0],
+      labb: [0, 0],
       bedomning: [0, 0],
     };
     let cursor = 0;
@@ -911,6 +917,7 @@ const GROUP_COLORS: Record<Group, { bg: string; border: string; text: string }> 
   livsstil: { bg: "#dcfce7", border: "#4ade80", text: "#14532d" },
   anamnes: { bg: "#e0e7ff", border: "#818cf8", text: "#312e81" },
   status: { bg: "#ddd6fe", border: "#a78bfa", text: "#4c1d95" },
+  labb: { bg: "#fff7ed", border: "#fb923c", text: "#7c2d12" },
   bedomning: { bg: "#fce7f3", border: "#f472b6", text: "#831843" },
 };
 
