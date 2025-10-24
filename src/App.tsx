@@ -999,113 +999,117 @@ const OutputPanel = React.memo(({
           </button>
         </div>
 
-        {viewMode === "formatted" ? (
-          <div style={{ 
-            overflow: "auto",
-            border: "1px solid #e5e7eb",
-            borderRadius: "10px",
-            backgroundColor: "#fafafa",
-            minHeight: "300px",
-          }}>
-            {GROUP_ORDER.map((g) => {
-              const modules = modulesByGroup[g];
-              if (!modules || modules.length === 0) return null;
-              const colors = GROUP_COLORS[g];
-              
-              return (
+        <div style={{ 
+          overflow: "auto",
+          border: "1px solid #e5e7eb",
+          borderRadius: "10px",
+          backgroundColor: "#fafafa",
+          minHeight: "300px",
+          display: viewMode === "formatted" ? "block" : "none",
+        }}>
+          {GROUP_ORDER.map((g) => {
+            const modules = modulesByGroup[g];
+            if (!modules || modules.length === 0) return null;
+            const colors = GROUP_COLORS[g];
+            
+            return (
+              <div
+                key={g}
+                style={{
+                  margin: "8px",
+                  padding: "12px",
+                  backgroundColor: colors.bg,
+                  border: `2px solid ${colors.border}`,
+                  borderRadius: "8px",
+                  position: "relative",
+                }}
+              >
                 <div
-                  key={g}
                   style={{
-                    margin: "8px",
-                    padding: "12px",
-                    backgroundColor: colors.bg,
-                    border: `2px solid ${colors.border}`,
-                    borderRadius: "8px",
-                    position: "relative",
+                    fontSize: "11px",
+                    fontWeight: "700",
+                    textTransform: "uppercase",
+                    color: colors.text,
+                    marginBottom: modules.length > 1 ? "12px" : "8px",
+                    opacity: 0.8,
+                    letterSpacing: "0.5px",
                   }}
                 >
-                  <div
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: "700",
-                      textTransform: "uppercase",
-                      color: colors.text,
-                      marginBottom: modules.length > 1 ? "12px" : "8px",
-                      opacity: 0.8,
-                      letterSpacing: "0.5px",
-                    }}
-                  >
-                    {GROUP_LABEL[g]}
-                  </div>
-                  
-                  {/* Visa moduler som subsektioner om det finns fler än 1 */}
-                  {modules.length > 1 ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                      {modules.map((mod, idx) => (
+                  {GROUP_LABEL[g]}
+                </div>
+                
+                {/* Visa moduler som subsektioner om det finns fler än 1 */}
+                {modules.length > 1 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {modules.map((mod, idx) => (
+                      <div
+                        key={mod.moduleId}
+                        style={{
+                          padding: "10px",
+                          backgroundColor: `rgba(255, 255, 255, ${0.3 + idx * 0.1})`,
+                          borderRadius: "6px",
+                          border: `1px solid ${darkenColor(colors.border, 0.1)}`,
+                        }}
+                      >
                         <div
-                          key={mod.moduleId}
                           style={{
-                            padding: "10px",
-                            backgroundColor: `rgba(255, 255, 255, ${0.3 + idx * 0.1})`,
-                            borderRadius: "6px",
-                            border: `1px solid ${darkenColor(colors.border, 0.1)}`,
+                            fontSize: "10px",
+                            fontWeight: "600",
+                            color: colors.text,
+                            marginBottom: "6px",
+                            opacity: 0.7,
                           }}
                         >
-                          <div
-                            style={{
-                              fontSize: "10px",
-                              fontWeight: "600",
-                              color: colors.text,
-                              marginBottom: "6px",
-                              opacity: 0.7,
-                            }}
-                          >
-                            {mod.moduleTitle}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "13px",
-                              lineHeight: "1.6",
-                              color: colors.text,
-                              whiteSpace: "pre-wrap",
-                              fontFamily: "inherit",
-                            }}
-                          >
-                            {mod.text}
-                          </div>
+                          {mod.moduleTitle}
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        fontSize: "13px",
-                        lineHeight: "1.6",
-                        color: colors.text,
-                        whiteSpace: "pre-wrap",
-                        fontFamily: "inherit",
-                      }}
-                    >
-                      {modules[0].text}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {!allText && (
-              <div style={{ 
-                padding: "2rem", 
-                textAlign: "center", 
-                opacity: 0.5,
-                color: "#6b7280" 
-              }}>
-                Börja fylla i formulären för att generera text...
+                        <div
+                          style={{
+                            fontSize: "13px",
+                            lineHeight: "1.6",
+                            color: colors.text,
+                            whiteSpace: "pre-wrap",
+                            fontFamily: "inherit",
+                          }}
+                        >
+                          {mod.text}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      lineHeight: "1.6",
+                      color: colors.text,
+                      whiteSpace: "pre-wrap",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    {modules[0].text}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        ) : (
-          <textarea ref={taRef} className="ta grow" readOnly value={allText} />
-        )}
+            );
+          })}
+          {!allText && (
+            <div style={{ 
+              padding: "2rem", 
+              textAlign: "center", 
+              opacity: 0.5,
+              color: "#6b7280" 
+            }}>
+              Börja fylla i formulären för att generera text...
+            </div>
+          )}
+        </div>
+        <textarea 
+          ref={taRef} 
+          className="ta grow" 
+          readOnly 
+          value={allText}
+          style={{ display: viewMode === "plain" ? "block" : "none" }}
+        />
         
         <p className="hint mt">
           {viewMode === "formatted" 

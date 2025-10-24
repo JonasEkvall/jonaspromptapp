@@ -294,7 +294,7 @@ function buildText(s: State) {
     parts.push(`Övrigt: ${ovrigtParams.join(". ")}`);
   }
   
-  return parts.join(". ");
+  return parts.join("\n");
 }
 
 const def: ModuleDef<State> = {
